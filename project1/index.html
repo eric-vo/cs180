@@ -106,6 +106,12 @@
           Note that for multi-scale alignment, we can keep our original window size since the displacement will get scaled up as we scale the images back up.
           We'll also use a scaling factor of 2.
         </p>
+        <p>
+          And as a precaution, we'll set the minimum pyramid size to twice our window size
+          divided by the portion of the image that isn't designated as the border.
+          This ensures that we won't get absurdly large displacements
+          that result from the image "looping" around during each iteration.
+        </p>
         <p>Here's the gallery of the multi-scale aligned example images:</p>
         <div class="mt-4">
           <span class="d-flex flex-wrap justify-content-center">
