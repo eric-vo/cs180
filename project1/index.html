@@ -25,10 +25,220 @@
         </div>
       </div>
     </nav>
-    <div class="container text-center mt-5 mb-5">
+    <div class="container text-center mt-5 mb-5 px-4">
       <h1>Project 1: Images of the Russian Empire</h1>
       <p>Colorizing the Prokudin-Gorskii photo collection</p>
+      <div class="mt-4">
+        <span class="mt-4">
+          <img src="media/original/cathedral.jpg" height="256" alt="Original cathedral">
+          <img src="media/unaligned/cathedral.jpg" height="256" alt="Unaligned cathedral">
+          <img src="media/aligned/single/cathedral.jpg" height="256" alt="Aligned L2 cathedral">
+        </span>
+      </div>
+      <div class="mt-4">
+        <p>
+          Before color photography was a real thing, Sergei Mikhailovich Prokudin-Gorskii set out to photograph thousands of hypothetical color pictures across the Russian Empire.
+          To do this, he took three exposures of every picture: each one under either a red, blue, or green filter.
+          Now in the present day, we're finally able to colorize Prokudin-Gorskii's collection by overlaying the exposures!
+          Instead of overlaying them by hand, however, we'll be doing it programmatically using NumPy and scikit-image. Let's get started!
+        </p>
+      </div>
       <div class="mt-5">
+        <h2>Single-Scale Alignment</h2>
+        <p class="mt-3">
+          Let's first run a single-scale alignment on some low-resolution images.
+          This approach takes a square window of possible displacements for the green and red channels (keeping the blue fixed)
+          and picks the displacements that minimize the error according to the error metric we choose.
+          In this case, we'll be using a window ranging from -15 to 15 pixels along each axis,
+          and we'll use the L2 norm as well as Normalized Cross-Correlation (NCC) to pick the best alignment (the one with the smallest error).
+        </p>
+        <div class="mt-4">
+          <span>
+            <img src="media/original/cathedral.jpg" height="400" alt="Original cathedral">
+            <img src="media/original/monastery.jpg" height="400" alt="Original monastery">
+            <img src="media/original/tobolsk.jpg" height="400" alt="Original tobolsk">
+          </span>
+          <h6 class="mt-2">The original, unsplit images</h6>
+        </div>
+        <div class="mt-4">
+          <span>
+            <img src="media/unaligned/cathedral.jpg" height="256" alt="Unaligned cathedral">
+            <img src="media/unaligned/monastery.jpg" height="256" alt="Unaligned monastery">
+            <img src="media/unaligned/tobolsk.jpg" height="256" alt="Unaligned tobolsk">
+          </span>
+          <h6 class="mt-2">The combined, unaligned images</h6>
+        </div>
+        <div class="mt-4">
+          <span class="d-flex flex-wrap justify-content-center">
+            <div>
+              <img src="media/aligned/single/cathedral.jpg" height="256" alt="Single-scale aligned cathedral">
+              <h6 class="mt-2">G: (5, 2), R: (12, 3)</h6>
+            </div>
+            <div>
+              <img src="media/aligned/single/monastery.jpg" height="256" alt="Single-scale aligned monastery">
+              <h6 class="mt-2">G: (-3, 2), R: (3, 2)</h6>
+            </div>
+            <div>
+              <img src="media/aligned/single/tobolsk.jpg" height="256" alt="Single-scale aligned tobolsk">
+              <h6 class="mt-2">G: (3, 3), R: (6, 3)</h6>
+            </div>
+          </span>
+          <h6 class="mt-2">
+            The images aligned using L2 norm and NCC (both methods give identical results).
+          </h6>
+        </div>
+        <p class="mt-4">
+          The L2 norm is simply the norm of the difference between two images:
+          pixels that are closer in intensity result in a smaller norm.
+          NCC is different in that it takes two mean-subtracted, normalized images and computes the dot product between them:
+          Pixels that deviate from the mean in the same direction contribute to a larger NCC.
+          Note that if our goal is to minimize error, the NCC should be negated in our error calculation (since higher correlation is ideal).
+          We should also calculate the error on inner pixels depicting just the photo, not including the borders (which could introduce noise into our metric).
+          This can be done by simply cropping the borders (such as the outer 10%).
+        </p>
+      </div>
+      <div class="mt-5">
+        <h2>Multi-Scale Alignment</h2>
+        <p class="mt-3">
+          Single-scale alignment works for small images, but larger images (which would require a larger window) take too long with this technique.
+          Instead, we'll use an image pyramid for larger images, which estimates the alignment on downscaled images and scales up that estimate until we get back to the full image.
+          We apply the fixed alignment window on each step to update our estimate.
+          For our purposes, we'll use a scaling factor of 2.
+        </p>
+        <p>Here's the gallery of the multi-scale aligned example images:</p>
+        <div class="mt-4">
+          <span class="d-flex flex-wrap justify-content-center">
+            <div>
+              <img src="media/aligned/multi/l2/cathedral.jpg" height="256" alt="Multi-scale L2 and NCC aligned cathedral">
+              <h6 class="mt-2">L2 and NCC (same). G: (5, 2), R: (12, 3)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/church.jpg" height="256" alt="Multi-scale L2 and NCC aligned church">
+              <h6 class="mt-2">L2 and NCC (same). G: (25, 4), R: (58, -4)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/emir.jpg" height="256" alt="Multi-scale L2 aligned Emir">
+              <h6 class="mt-2">L2. G: (49, 24), R: (114, -1049)</h6>
+            </div>
+            <div>
+              <img src="media/aligned/multi/ncc/emir.jpg" height="256" alt="Multi-scale NCC aligned Emir">
+              <h6 class="mt-2">NCC. G: (49, 24), R: (169, -1041)</h6>
+            </div>
+          </span>
+          <p class="mt-2 mb-4">
+            This photo of the Emir of Bukhara isn't aligned using our error metrics
+            since we're only comparing pixel intensities. Because his outfit is extremely blue,
+            the intensities across channels vary widely in that area, inflating the error if the image were properly aligned.
+            We'd ideally use edge detection to align the channels by their edges instead.
+          </p>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/harvesters.jpg" height="256" alt="Multi-scale L2 aligned harvesters">
+              <h6 class="mt-2">L2. G: (60, 16), R: (124, 13)</h6>
+            </div>
+            <div>
+              <img src="media/aligned/multi/ncc/harvesters.jpg" height="256" alt="Multi-scale L2 aligned harvesters">
+              <h6 class="mt-2">L2. G: (60, 17), R: (124, 13)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/icon.jpg" height="256" alt="Multi-scale L2 and NCC aligned icon">
+              <h6 class="mt-2">L2 and NCC (same). G: (41, 17), R: (89, 23)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/ilemselga.jpg" height="256" alt="Multi-scale L2 aligned ilemselga">
+              <h6 class="mt-2">L2. G: (39, 7), R: (129, 11)</h6>
+            </div>
+            <div>
+              <img src="media/aligned/multi/ncc/ilemselga.jpg" height="256" alt="Multi-scale NCC aligned ilemselga">
+              <h6 class="mt-2">NCC. G: (40, 7), R: (130, 11)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/melons.jpg" height="256" alt="Multi-scale L2 aligned melons">
+              <h6 class="mt-2">L2. G: (82, 11), R: (178, 13)</h6>
+            </div>
+            <div>
+              <img src="media/aligned/multi/ncc/melons.jpg" height="256" alt="Multi-scale NCC aligned melons">
+              <h6 class="mt-2">NCC. G: (82, 10), R: (178, 13)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/monastery.jpg" height="256" alt="Multi-scale L2 and NCC aligned monastery">
+              <h6 class="mt-2">L2 and NCC (same). G: (-3, 2), R: (3, 2)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/religous_painting.jpg" height="256" alt="Multi-scale L2 and NCC aligned religious painting.jpg">
+              <h6 class="mt-2">L2 and NCC (same). G: (28, 3), R: (68, 7)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/self_portrait.jpg" height="256" alt="Multi-scale L2 and NCC aligned self portrait.jpg">
+              <h6 class="mt-2">L2 and NCC (same). G: (79, 29), R: (176, 36)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/siren.jpg" height="256" alt="Multi-scale L2 and NCC aligned siren.jpg">
+              <h6 class="mt-2">L2 and NCC (same). G: (49, -6), R: (96, -25)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/three_generations.jpg" height="256" alt="Multi-scale L2 and NCC aligned three generations.jpg">
+              <h6 class="mt-2">L2 and NCC (same). G: (53, 14), R: (112, 11)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/tobolsk.jpg" height="256" alt="Multi-scale L2 and NCC aligned tobolsk.jpg">
+              <h6 class="mt-2">L2 and NCC (same). G: (3, 3), R: (6, 3)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/wharf.jpg" height="256" alt="Multi-scale L2 and NCC aligned wharf.jpg">
+              <h6 class="mt-2">L2 and NCC (same). G: (15, -7), R: (83, -16)</h6>
+            </div>
+          </span>
+        </div>
+        <p class="mt-4">And here are the multi-scale results of three images I picked:</p>
+        <div class="mt-4">
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/dam.jpg" height="256" alt="Multi-scale L2 and NCC aligned dam">
+              <h6 class="mt-2">L2 and NCC (same). G: (47, 15), R: (108, 28)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/forest.jpg" height="256" alt="Multi-scale L2 aligned forest">
+              <h6 class="mt-2">L2. G: (36, -32), R: (97, 7)</h6>
+            </div>
+            <div>
+              <img src="media/aligned/multi/ncc/forest.jpg" height="256" alt="Multi-scale NCC aligned forest">
+              <h6 class="mt-2">NCC. G: (37, -33), R: (97, 6)</h6>
+            </div>
+          </span>
+          <span class="d-flex flex-wrap justify-content-center mt-3">
+            <div>
+              <img src="media/aligned/multi/l2/trees.jpg" height="256" alt="Multi-scale L2 and NCC aligned trees">
+              <h6 class="mt-2">L2 and NCC (same). G: (57, -31), R: (131, -60)</h6>
+            </div>
+          </span>
+        </div>
       </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
