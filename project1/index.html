@@ -103,7 +103,8 @@
           Single-scale alignment works for small images, but larger images (which would require a larger window) take too long with this technique.
           Instead, we'll use an image pyramid for larger images, which estimates the alignment on downscaled images and scales up that estimate until we get back to the full image.
           We apply the fixed alignment window on each step to update our estimate.
-          For our purposes, we'll use a scaling factor of 2.
+          Note that for multi-scale alignment, we can keep our original window size since the displacement will get scaled up as we scale the images back up.
+          We'll also use a scaling factor of 2.
         </p>
         <p>Here's the gallery of the multi-scale aligned example images:</p>
         <div class="mt-4">
