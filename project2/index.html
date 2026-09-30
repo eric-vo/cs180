@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project 2: Fun with Filters and Frequencies!</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.11.1/styles/github-dark.min.css"
+    integrity="sha384-wH75j6z1lH97ZOpMOInqhgKzFkAInZPPSPlZpYKYTOqsaizPvhQZmAtLcPKXpLyH" crossorigin="anonymous">
+  <style>
+    .same-line-image {
+      max-height: 256px;
+      width: auto;
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="../index.html">CS 180</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse active" aria-current="page" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="../project0/index.html">Project 0</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="../project1/index.html">Project 1</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="index.html">Project 2</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <div class="container text-center mt-5 mb-5 px-4">
+    <h1>Project 2: Fun with Filters and Frequencies!</h1>
+    <div class="mt-4">
+      <p>
+        Throughout the course, we've learned a lot about how to manipulate images using filters with convolution,
+        extract features using Gaussians, Laplacians, and directional filters, and blend images together smoothly
+        using Laplacian pyramids. In this project, I'll demonstrate some of the techniques we've learned on a couple
+        of images of my own. With that, let's play around with a couple of different filters on some images and see
+        what interesting results we can get!
+      </p>
+    </div>
+    <div class="mt-5">
+      <h2>Convolutions from Scratch</h2>
+      <p class="mt-3">
+        Let's start by implementing a convolution. I implemented a function that takes a
+        filter and applies it to every pixel in an image, with options for using 4 or 2 for loops.
+      </p>
+      <pre class="text-start bg-body-secondary p-3 rounded"><code class="language-python">def convolve(image, filter, num_loops=2):
+  image_height, image_width = image.shape
+  filter_height, filter_width = filter.shape
+  padding_height, padding_width = filter_height // 2, filter_width // 2
+
+  padded_image = np.zeros(
+    (image_height + 2 * padding_height, image_width + 2 * padding_width)
+  )
+  padded_image[
+    padding_height : padding_height + image_height,
+    padding_width : padding_width + image_width,
+  ] = image
+
+  convolved_image = np.zeros(image.shape)
+  if num_loops == 2:
+    for k, filter_row in enumerate(filter):
+      for l, filter_px in enumerate(filter_row):
+        centered_k, centered_l = k - padding_height, l - padding_width
+        convolved_image += (
+          padded_image[
+            padding_height - centered_k : (padding_height + image_height)
+            - centered_k,
+            padding_width - centered_l : (padding_width + image_width)
+            - centered_l,
+          ]
+          * filter_px
+        )
+  elif num_loops == 4:
+    for i in range(image_height):
+      for j in range(image_width):
+        for k, filter_row in enumerate(filter):
+          for l, filter_px in enumerate(filter_row):
+            centered_k, centered_l = k - padding_height, l - padding_width
+            convolved_image[i][j] += (
+              padded_image[
+                (i + padding_height) - centered_k,
+                (j + padding_width) - centered_l,
+              ]
+              * filter_px
+            )
+  else:
+    raise ValueError
+  return convolved_image</code></pre>
+      <p class="mt-4">
+        In the version with 4 loops, for every pixel in the image, we iterate through each pixel in the filter and
+        apply it to the image. This works but is quite slow, so the 2 loop version instead uses vectorization to
+        apply each pixel in the filter to the whole image at once, which sped things up by 3 to 4 times in my
+        experience.
+      </p>
+      <p>
+        One might ask what happens with pixels at the boundaries of the image. To avoid the filter going out of
+        bounds for these pixels, we pad the image with zeros, equal to half the height/width of the filter on
+        each side.
+      </p>
+      <p>
+        Using this function, I applied the finite difference operators <strong>D<sub>x</sub></strong> and
+        <strong>D<sub>y</sub></strong>, as well as a box filter, to a photo of myself. You can see this in the top
+        row of the image below. The bottom row shows the results of applying the same filters, but using
+        <strong>scipy.signal.convolve2d()</strong>. The results in both cases are visually identical.
+      </p>
+      <img class="img-fluid" src="media/results/part-1-1.png"
+        alt="Finite difference and box filter convolution results">
+    </div>
+    <div class="mt-5">
+      <h2>Finite Difference Operator / Derivative of Gaussian</h2>
+      <p class="mt-3">
+        Let's apply the finite difference operators <strong>D<sub>x</sub></strong> and
+        <strong>D<sub>y</sub></strong> to a photo of a cameraman. We can also combine the results of these two
+        operators to get the gradient magnitude, which is calculated as
+        <strong>&radic;(D<sub>x</sub><sup>2</sup> + D<sub>y</sub><sup>2</sup>)</strong> and gives a good overview of
+        the edges in the image.
+      </p>
+      <p>
+        With the gradient magnitude, we'll attempt to filter out noise by binarizing the image using a threshold of
+        <strong>0.31</strong>. The results of applying these operators to the image are shown.
+      </p>
+      <img class="img-fluid mt-4" src="media/results/part-1-2.png"
+        alt="Finite difference operator and gradient magnitude results">
+      <p class="mt-4">
+        Note that it's rather difficult to remove all the noise without losing some edge definition near the
+        cameraman's legs, but the binarization still filters out some noise while making important edges more
+        prominent. We'll solve this in this next step.
+      </p>
+      <p>
+        If we first apply a Gaussian filter (filtering out high-frequency components) to the image before applying
+        the finite difference operators, we can reduce the noise in the image to get a cleaner result. Below are the
+        results of applying the finite difference operators to the image after first applying a Gaussian
+        filter. In addition to the binarized image being less noisy, the outlines of the edges (especially around the
+        cameraman) are also smoother, more defined, and less jagged.
+      </p>
+      <img class="img-fluid mt-4" src="media/results/part-1-3-1.png"
+        alt="Finite difference results after applying a Gaussian filter">
+      <p class="mt-4">
+        Now, since convolution is an associative operation, we can also combine the Gaussian filter and the finite
+        difference operators into a single filter by convolving them together. We can then simply apply this combined
+        filter to the image as one operation to achieve the same result, displayed below:
+      </p>
+      <img class="img-fluid mt-4" src="media/results/part-1-3-2.png"
+        alt="Results from applying a combined Gaussian and finite difference filter">
+    </div>
+    <div class="mt-5">
+      <h2>Image Sharpening</h2>
+      <p class="mt-3">
+        Let's implement an unsharp mask filter that sharpens an image. Taking the Gaussian of an image isolates
+        lower-frequency components, so if we subtract the Gaussian from the original image, we can isolate the
+        higher-frequency components of the image, also known as the Laplacian. We can then add this Laplacian,
+        multiplied by an alpha factor, back to the original image to sharpen it.
+      </p>
+      <p>
+        For our sharpening purposes, we'll use an alpha factor of <strong>2</strong>. The results of sharpening several images are
+        shown below.
+      </p>
+      <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+        <img class="img-fluid same-line-image" src="media/results/part-2-1-taj.png"
+          alt="Taj Mahal sharpened with alpha 2">
+        <img class="img-fluid same-line-image" src="media/results/part-2-1-leaf.png" alt="Leaf sharpened with alpha 2">
+        <img class="img-fluid same-line-image" src="media/results/part-2-1-spiral.png"
+          alt="Spiral sharpened with alpha 2">
+      </div>
+      <p class="mt-4">
+        Increasing the alpha factor increases the degree of sharpening, as seen below using an alpha factor of <strong>10</strong>.
+      </p>
+      <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+        <img class="img-fluid same-line-image" src="media/results/part-2-1-taj-10.png"
+          alt="Taj Mahal sharpened with alpha 10">
+        <img class="img-fluid same-line-image" src="media/results/part-2-1-leaf-10.png"
+          alt="Leaf sharpened with alpha 10">
+        <img class="img-fluid same-line-image" src="media/results/part-2-1-spiral-10.png"
+          alt="Spiral sharpened with alpha 10">
+      </div>
+      <p class="mt-4">
+        What happens if we try to re-sharpen a blurred image? The result is shown below. Since blurring gets rid of
+        high-frequency information, sharpening only amplifies the remaining high-frequency information and cannot
+        recover information that was lost in the blur. As a result, the image is sharpened but still lacks the fine
+        detail of the pre-blurred image.
+      </p>
+      <img class="img-fluid mt-4" src="media/results/part-2-1-resharpen.png" alt="Blurred subject after re-sharpening">
+      <div class="mt-5">
+        <h2>Hybrid Images</h2>
+        <p class="mt-3">
+          By combining the low-frequency components of one image with the high-frequency components of another, we can
+          create hybrid images that look different depending on the viewing distance. For example, combining Derek with
+          his cat Nutmeg results in the hybrid below.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+          <img class="img-fluid same-line-image" src="media/img/DerekPicture.jpg" alt="Portrait of Derek">
+          <img class="img-fluid same-line-image" src="media/img/nutmeg.jpg" alt="Portrait of Nutmeg">
+          <img class="img-fluid same-line-image" src="media/results/part-2-2-cat.png" alt="Derek and Nutmeg hybrid">
+        </div>
+        <p class="mt-4">
+          I tried this on some of my own images as well. Here's an example of combining a portrait of me with a portrait
+          of streamer Jerma. You can see how the Fourier transforms, which depict frequency content, change as one image
+          is blurred and the high-frequency details of the other are extracted.
+          I used a frequency cutoff of <strong>sigma_1 = 5</strong> for the photo of me and <strong>sigma_2 = 8</strong> for the photo of Jerma.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+          <img class="img-fluid same-line-image" src="media/img/eric.jpg" alt="Portrait of Eric">
+          <img class="img-fluid same-line-image" src="media/img/jerma.jpg" alt="Portrait of Jerma">
+        </div>
+        <img class="img-fluid" src="media/results/part-2-2-jerma.png" alt="Eric and Jerma hybrid">
+        <p class="mt-4">
+          Here's a hybrid between a plain head and a helmet.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+          <img class="img-fluid same-line-image" src="media/img/head.jpg" alt="Portrait of a head">
+          <img class="img-fluid same-line-image" src="media/img/helmet.jpg" alt="Helmet">
+          <img class="img-fluid same-line-image" src="media/results/part-2-2-helmet.png" alt="Head and helmet hybrid">
+        </div>
+        <p class="mt-4">
+          Finally, here's a hybrid between a mountain range and a poolside, aligned so that the horizon lines match up.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+          <img class="img-fluid same-line-image" src="media/img/mountain.jpg" alt="Mountain range">
+          <img class="img-fluid same-line-image" src="media/img/pool.jpg" alt="Poolside">
+        </div>
+        <img height="450" src="media/results/part-2-2-pool.png" alt="Mountain and poolside hybrid">
+      </div>
+      <div class="mt-5">
+        <h2>Multiresolution Blending</h2>
+        <p class="mt-3">
+          For our finale, we're going to implement multiresolution blending for a smooth transition between two images
+          using Gaussian and Laplacian stacks! Let's first take a look at blending an apple and an orange: an
+          "oraple," so to speak.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+          <img class="img-fluid same-line-image" src="media/img/apple.jpeg" alt="Apple">
+          <img class="img-fluid same-line-image" src="media/img/orange.jpeg" alt="Orange">
+        </div>
+        <p class="mt-4">
+          For each level of the Gaussian and Laplacian stack,
+          we blur the Gaussian and subtract that result from the Gaussian to get the Laplacian.
+          This allows us to reconstruct the original image by adding the Laplacians back to
+          the Gaussians of the previous level. We'll be using 7 stack levels for this instance.
+        </p>
+        <img class="img-fluid mt-4" src="media/results/part-2-4-stacks.png" alt="Gaussian and Laplacian stacks for apple and orange">
+        <p class="mt-4">
+          Additionally, we'll apply a mask on the two images to isolate the left half of the apple and the right half
+          of the orange in each level. As we go down the stacks, we'll blur the mask so that low-frequency components
+          of the images are blended together smoothly while high-frequency patterns are preserved. This allows for a
+          seamless transition between the two images. The results of this blending process are shown below
+          (The first three rows represent Laplacian levels 0, 2, and 4).
+        </p>
+        <img class="img-fluid mt-4" src="media/results/part-2-4-recreation.png" alt="Apple and orange blended together">
+        <p class="mt-4">
+          Great! Now that it works, let's try this method on some custom images. For one, I decided to combine
+          a desert and ocean background. I also decided to use a custom mask, shown below.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+          <img class="img-fluid same-line-image" src="media/img/desert.jpg" alt="Desert landscape">
+          <img class="img-fluid same-line-image" src="media/img/sea.jpg" alt="Ocean landscape">
+          <img class="img-fluid same-line-image" src="media/img/custom-mask-1.png" alt="Custom blending mask">
+        </div>
+        <p class="mt-4">The result of this blending process is below. The first three rows represent the same Laplacian levels.</p>
+        <img class="img-fluid mt-4" src="media/results/part-2-4-custom-1.png" alt="Desert and ocean blended together">
+        <p class="mt-4">
+          Finally, I repeated this process for another pair of images, this time combining two distinct buildings. Here
+          are the two original images with the custom mask.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+          <img class="img-fluid same-line-image" src="media/img/other-building.jpg" alt="First building">
+          <img class="img-fluid same-line-image" src="media/img/building.jpg" alt="Second building">
+          <img class="img-fluid same-line-image" src="media/img/custom-mask-2.png" alt="Custom blending mask">
+        </div>
+        <p class="mt-4">And here's the result of the blending process!</p>
+        <img class="img-fluid mt-4" src="media/results/part-2-4-custom-2.png" alt="Two buildings blended together">
+      </div>
+      <p>That's all for now. Hope you enjoyed!</p>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.11.1/highlight.min.js"
+      integrity="sha384-RH2xi4eIQ/gjtbs9fUXM68sLSi99C7ZWBRX1vDrVv6GQXRibxXLbwO2NGZB74MbU"
+      crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.11.1/languages/python.min.js"
+      integrity="sha384-eXRt+aAa2ig1yFVDQCLis8k9s/1dikTcigj+/R07yNdIxc8BAG/b1uHDyEW3of17"
+      crossorigin="anonymous"></script>
+    <script>hljs.highlightAll();</script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+      crossorigin="anonymous"></script>
+</body>
+
+</html>
