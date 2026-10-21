@@ -36,6 +36,9 @@
           <li class="nav-item">
             <a class="nav-link active" aria-current="page" href="index.html">Project 2</a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link" href="../project3/index.html">Project 3</a>
+          </li>
         </ul>
       </div>
     </div>
@@ -166,7 +169,8 @@
         multiplied by an alpha factor, back to the original image to sharpen it.
       </p>
       <p>
-        For our sharpening purposes, we'll use an alpha factor of <strong>2</strong>. The results of sharpening several images are
+        For our sharpening purposes, we'll use an alpha factor of <strong>2</strong>. The results of sharpening several
+        images are
         shown below.
       </p>
       <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
@@ -177,7 +181,8 @@
           alt="Spiral sharpened with alpha 2">
       </div>
       <p class="mt-4">
-        Increasing the alpha factor increases the degree of sharpening, as seen below using an alpha factor of <strong>10</strong>.
+        Increasing the alpha factor increases the degree of sharpening, as seen below using an alpha factor of
+        <strong>10</strong>.
       </p>
       <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
         <img class="img-fluid same-line-image" src="media/results/part-2-1-taj-10.png"
@@ -210,7 +215,8 @@
           I tried this on some of my own images as well. Here's an example of combining a portrait of me with a portrait
           of streamer Jerma. You can see how the Fourier transforms, which depict frequency content, change as one image
           is blurred and the high-frequency details of the other are extracted.
-          I used a frequency cutoff of <strong>sigma_1 = 5</strong> for the photo of me and <strong>sigma_2 = 8</strong> for the photo of Jerma.
+          I used a frequency cutoff of <strong>sigma_1 = 5</strong> for the photo of me and <strong>sigma_2 = 8</strong>
+          for the photo of Jerma.
         </p>
         <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
           <img class="img-fluid same-line-image" src="media/img/eric.jpg" alt="Portrait of Eric">
@@ -251,7 +257,8 @@
           This allows us to reconstruct the original image by adding the Laplacians back to
           the Gaussians of the previous level. We'll be using 7 stack levels for this instance.
         </p>
-        <img class="img-fluid mt-4" src="media/results/part-2-4-stacks.png" alt="Gaussian and Laplacian stacks for apple and orange">
+        <img class="img-fluid mt-4" src="media/results/part-2-4-stacks.png"
+          alt="Gaussian and Laplacian stacks for apple and orange">
         <p class="mt-4">
           Additionally, we'll apply a mask on the two images to isolate the left half of the apple and the right half
           of the orange in each level. As we go down the stacks, we'll blur the mask so that low-frequency components
@@ -269,7 +276,8 @@
           <img class="img-fluid same-line-image" src="media/img/sea.jpg" alt="Ocean landscape">
           <img class="img-fluid same-line-image" src="media/img/custom-mask-1.png" alt="Custom blending mask">
         </div>
-        <p class="mt-4">The result of this blending process is below. The first three rows represent the same Laplacian levels.</p>
+        <p class="mt-4">The result of this blending process is below. The first three rows represent the same Laplacian
+          levels.</p>
         <img class="img-fluid mt-4" src="media/results/part-2-4-custom-1.png" alt="Desert and ocean blended together">
         <p class="mt-4">
           Finally, I repeated this process for another pair of images, this time combining two distinct buildings. Here

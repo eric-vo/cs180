@@ -1,0 +1,40 @@
+Training a model from scratch has its quirks, as well! In this part, I implemented my own denoiser based on the UNet architecture, trained to denoise MNIST digits. I first created noisy versions of images using the formula <embed as math, z = x + sigma*epsilon> with various noise levels:
+<noisy_sample_images.png>
+
+Then, I trained the model for 5 epochs to perform denoising on images with <display as math: sigma = 0.5>. Results after 1 and 5 epochs of training were as follows, along with training loss over time:
+<denoised_results_1.png>
+<denoised_results_5.png>
+<denoise_loss.png>
+
+The denoiser was trained on digits with <display as math: sigma = 0.5>, so I also wanted to visualize how it performed on varying levels of noise it may not have been trained for. You can see how the performance varies depending on the level of noise:
+<out_of_distribution_1.png>
+<out_of_distribution_2.png>
+
+Now, to generate new images, I trained another model on pure noise instead. Here are the results from that training:
+<pure_noise_denoised_results_1.png>
+<pure_noise_denoised_results_5.png>
+<pure_noise_denoise_loss.png>
+What patterns are visible? The generated outputs are all very similar, resembling an average of all 10 possible digits. This pattern may exist since from pure noise, we have no indication of what particular digit an image may be/become. Thus, the model turns pure noise into an average of all possible digits.
+
+Since one-step denoising doesn't work well, let's train a flow matching model, instead. I trained a UNet conditioned on time for 10 epochs to predict the velocity of a noisy image given a particular timestep. The results of the training loss are below:
+<time_loss.png>
+Now that we have a trained model, let's sample some results!
+<flow_samples_1.png>
+<flow_samples_5.png>
+<flow_samples_10.png>
+
+If we want to condition generation based on a class from digit 0-9, we can add class-conditioning to the UNet and train that version. Training the class-conditioned model produced the below loss plot:
+<class_loss.png>
+Now sampling using classifier-free guidance with <display as math: gamma = 5.0>, we get more clearly defined results based on our conditioned digit:
+<flow_conditional_samples_1.png>
+<flow_conditional_samples_5.png>
+<flow_conditional_samples_10.png>
+
+In this class-conditioned UNet, I used a learning rate decay scheduler to reduce the learning rate over time. What if we removed the scheduler? I tried just that. To compensate for the loss of the scheduler, I simply lowered the learning rate from 1e-2 to 1e-4 to ensure the model converges smoothly on a minimum during training.
+<class_simple_reduced_learning_loss.png>
+<flow_conditional_samples_1_simple_reduced_learning.png>
+<flow_conditional_samples_5_simple_reduced_learning.png>
+<flow_conditional_samples_10_simple_reduced_learning.png>
+And just like that, we can generate results that are just as good as when we had the scheduler!
+
+That's all for now. Hope you enjoyed!

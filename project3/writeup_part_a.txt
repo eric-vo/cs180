@@ -1,0 +1,101 @@
+Let's first implement an interpolation function that constructs noisy training inputs.
+```
+def interpolate(image, noise, t):
+    return (1 - t) * noise + t * image
+```
+I carried out this noising process on an image of a car I chose, shown below.
+<training_inputs.png>
+
+For each of these noisy images, I applied Gaussian blur to perform classical denoising without a learned flow model (top to bottom is t = 0.25, 0.5, 0.75):
+<blur_0.25.png>
+<blur_0.5.png>
+<blur_0.75.png>
+
+To perform one-step denoising using a pre-trained model, I implemented `one_step_denoise` below and then used it to denoise my noisy images (top to bottom is t = 0.25, 0.5, 0.75):
+```
+def one_step_denoise(x, t, condition, predict_velocity):
+    return x + (1 - t) * predict_velocity(x, t, condition)
+```
+<one_step_0.25.png>
+<one_step_0.5.png>
+<one_step_0.75.png>
+
+Now with this model, we can visualize how the predicted update compares to the ground-truth update with an error heatmap. The results are below.
+<velocity_original.png>
+<velocity_0.25.png>
+<velocity_0.5.png>
+<velocity_0.75.png>
+
+Instead of performing denoising in one step, we can also do iterative denoising with Euler sampling. I implemented `euler_sample` below and used this to perform 25 Euler updates on my t = 0.50 noisy image. You can see the results after every fifth update below.
+```
+@torch.inference_mode()
+def euler_sample(x_start, t_start, step_size, velocity):
+    x, t = x_start, t_start
+    states = [(t, x)]
+    while t < 1:
+        h = min(step_size, 1 - t)
+        x = x + h * velocity(x, t)
+        t += h
+        states.append((t, x))
+    return x, states
+```
+<trajectory.png>
+
+Here's how the denoising methods all compare!
+<comparison.png>
+
+Now, let's use the flow model to generate images from scratch. Here are 5 images I sampled using the prompt "a high quality photo."
+<conditional_samples.png>
+
+We can also use classifier-free guidance to strengthen the effect of the prompt and give us higher-quality results. I implemented the `cfg_velocity` function as follows and used that to generate 5 CFG samples with "a high quality photo," using the same initial noises below:
+```
+def cfg_velocity(x, t, condition, w, predict_velocity, null_condition=''):
+    v_c = predict_velocity(x, t, condition)
+    v_u = predict_velocity(x, t, null_condition)
+    return v_c + w * (v_c - v_u)
+```
+<cfg_samples.png>
+
+Let's use the model to perform edits on an image of the Campanile. I noised the image with various starting times and used the prompt "a high quality photo" with CFG and Euler sampling to create the edits below.
+<edit_campanile.png>
+<edit_my_image_1.png>
+<edit_my_image_2.png>
+I did the same for two of my own test images below.
+
+We can also perform edits on non-realistic images to project them onto the manifold of natural images. I made edits on an image from the web plus two of my own drawings below:
+<edit_web_image.png>
+<edit_my_image_1.png>
+<edit_my_image_2.png>
+
+What if we used a different prompt other than "a high quality photo"? I did that with my three images below with various prompts!
+<text_edit_campanile.png>
+<text_edit_my_image_1.png>
+<text_edit_my_image_2.png>
+
+We can create optical illusions using flow models, as well.
+
+At a timestep, we can predict the velocity with one prompt and another velocity with the flipped image and a second prompt. We can then reverse that second velocity and take the average of the first and second prompt velocities to get our overall velocity. Following that approach, I implemented `visual_anagrams` below:
+```
+def visual_anagrams(noise, condition_a, condition_b, predict_velocity, w=7, step_size=0.02):
+    def velocity(x, t):
+        v1 = guided(x, t, condition_a, w)
+        v2 = rotate180(guided(rotate180(x), t, condition_b, w))
+        return (v1 + v2) / 2
+
+    return euler_sample(noise, 0, step_size, velocity)[0]
+```
+And I created two anagrams using the model:
+<anagram_views_0>.png
+<anagram_views_1>.png
+
+What if we wanted a hybrid image? We can create a composite velocity by predicting velocities for two separate prompts, then combining the low-pass of one with the high-pass of the other. That's the approach I take with the following `make_hybrids` function:
+def make_hybrids(noise, condition_a, condition_b, predict_velocity, w=7, step_size=0.02):
+    def velocity(x, t):
+        v1 = guided(x, t, condition_a, w)
+        v2 = guided(x, t, condition_b, w)
+        return lowpass(v1) + (v2 - lowpass(v2))
+
+    return euler_sample(noise, 0, step_size, velocity)[0]
+And with that, here are two hybrid images I made! The first one is a pile of baseballs up close and a toilet from afar, while the second is a mountain from up close and an airplane from far away.
+<hybrid_0.png>
+<hybrid_1.png>
