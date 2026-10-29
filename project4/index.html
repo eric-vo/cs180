@@ -286,7 +286,7 @@ def warp_image(im, H, method):
         <h3>A.4: Blend the Images into a Mosaic</h3>
         <p class="mt-3">
           With homography calculation and warping now available, I blended the original three image sets together. I
-          used a two-level Laplacian stack to blend the images, which resulted in virtually seamless mosaics!
+          used a two-level Laplacian stack to blend the images, which resulted in virtually seamless mosaics.
           I created a rectangular mask slightly smaller than the bounds of each image, then blurred that mask differently for each level of the stack.
           I then bounded the visualization accordingly to fit the two blended images.
         </p>
