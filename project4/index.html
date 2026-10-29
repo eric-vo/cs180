@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project 4: Image Warping and Mosaicing</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.11.1/styles/github-dark.min.css"
+    integrity="sha384-wH75j6z1lH97ZOpMOInqhgKzFkAInZPPSPlZpYKYTOqsaizPvhQZmAtLcPKXpLyH" crossorigin="anonymous">
+  <style>
+    .writeup-image {
+      max-height: 360px;
+      width: auto;
+    }
+
+    .wide-image {
+      max-width: 100%;
+      max-height: 520px;
+    }
+
+    .image-caption {
+      color: var(--bs-secondary-color);
+      font-size: 0.95rem;
+    }
+
+    mjx-container[display="true"] {
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 0.5rem 0;
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="../index.html">CS 180</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse active" aria-current="page" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="../project0/index.html">Project 0</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="../project1/index.html">Project 1</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="../project2/index.html">Project 2</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="../project3/index.html">Project 3</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="index.html">Project 4</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container text-center mt-5 mb-5 px-4">
+    <h1>Project 4: [Auto]Stitching Photo Mosaics</h1>
+
+    <section class="mt-5">
+      <h2>Part A: Image Warping and Mosaicing</h2>
+
+      <div class="mt-4">
+        <h3>A.1: Shoot the Pictures</h3>
+        <p class="mt-3">
+          Here are three sets of images I took of a cafe, my apartment, and my bedroom. Each set has a
+          projective transformation between the two images, where I rotated the camera.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-4">
+          <figure class="m-0">
+            <img class="img-fluid writeup-image" src="media/images/cafe1.jpeg" alt="First cafe view">
+            <figcaption class="image-caption mt-2">Cafe, image 1</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid writeup-image" src="media/images/cafe2.jpeg" alt="Second cafe view">
+            <figcaption class="image-caption mt-2">Cafe, image 2</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid writeup-image" src="media/images/apt1.jpeg" alt="First apartment view">
+            <figcaption class="image-caption mt-2">Apartment, image 1</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid writeup-image" src="media/images/apt2.jpeg" alt="Second apartment view">
+            <figcaption class="image-caption mt-2">Apartment, image 2</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid writeup-image" src="media/images/bed1.jpeg" alt="First bedroom view">
+            <figcaption class="image-caption mt-2">Bedroom, image 1</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid writeup-image" src="media/images/bed2.jpeg" alt="Second bedroom view">
+            <figcaption class="image-caption mt-2">Bedroom, image 2</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="mt-5">
+        <h3>A.2: Recover Homographies</h3>
+        <p class="mt-3">
+          To compute the homography between two images in a set, I wrote the following function:
+        </p>
+        <pre class="text-start bg-body-secondary p-3 rounded"><code class="language-python">def compute_H(im1_points, im2_points):
+    """
+    im1_points: (n, 2)
+    im2_points: (n, 2)
+
+    p' = Hp
+    Output H: (3, 3)
+    """
+    A = []
+    for (x, y), (x_prime, y_prime) in zip(im1_points, im2_points):
+        A.append([x, y, 1, 0, 0, 0, -x * x_prime, -y * x_prime])
+        A.append([0, 0, 0, x, y, 1, -x * y_prime, -y * y_prime])
+    A = np.array(A)
+
+    b = im2_points.flatten()
+
+    h = np.linalg.lstsq(A, b)[0]
+    H = np.concat([h, [1]]).reshape((3, 3))
+    return H</code></pre>
+        <p class="mt-4">
+          The <code>compute_H</code> function creates a system of equations in the form $Ah=b$, then solves for
+          $h$ using least squares. Here, $h$ is a column vector of the eight values $a$ through $h$ in the homography
+          matrix, assuming $i$ is fixed as $1$.
+        </p>
+        <p>
+          Using the homography equation $p'=Hp$, the full form can be written as:
+        </p>
+        \[
+        \begin{bmatrix} wx' \\ wy' \\ w \end{bmatrix}
+        =
+        \begin{bmatrix} a & b & c \\ d & e & f \\ g & h & 1 \end{bmatrix}
+        \begin{bmatrix} x \\ y \\ 1 \end{bmatrix}.
+        \]
+        <p>
+          Multiplying out the matrix multiplication gives $ax + by + c = wx'$, $dx + ey + f = wy'$, and
+          $gx + hy + 1 = w$. Dividing the first two equations by the third gives:
+        </p>
+        \[
+        \frac{ax + by + c}{gx + hy + 1}=x', \qquad
+        \frac{dx + ey + f}{gx + hy + 1}=y'.
+        \]
+        <p>
+          Multiplying through by $(gx + hy + 1)$ and isolating $x'$ and $y'$ on the right gives:
+        </p>
+        \[
+        ax + by + c - gxx' - hyx' = x', \qquad
+        dx + ey + f - gxy' - hyy' = y'.
+        \]
+        <p>
+          Therefore, for each point correspondence $(x,y)\mapsto(x',y')$, the two rows in $A$ are:
+        </p>
+        \[
+        \begin{bmatrix} x & y & 1 & 0 & 0 & 0 & -xx' & -yx' \\
+        0 & 0 & 0 & x & y & 1 & -xy' & -yy' \end{bmatrix},
+        \]
+        <p>
+          and the corresponding values in $b$ are simply $x'$ and $y'$. For one point, the system is:
+        </p>
+        \[
+        \begin{bmatrix} x & y & 1 & 0 & 0 & 0 & -xx' & -yx' \\
+        0 & 0 & 0 & x & y & 1 & -xy' & -yy' \end{bmatrix}
+        h =
+        \begin{bmatrix} x' \\ y' \end{bmatrix}.
+        \]
+        <p>
+          Each additional point extends $A$ and $b$. Once we solve for $h$, we can construct $H$ from its values.
+        </p>
+        <p class="mt-4">Here are the correspondences I created for my three image sets:</p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-3">
+          <img class="img-fluid wide-image" src="media/cafe-correspondences.png"
+            alt="Corresponding points selected for the cafe images">
+          <img class="img-fluid wide-image" src="media/apt-correspondences.png"
+            alt="Corresponding points selected for the apartment images">
+          <img class="img-fluid wide-image" src="media/bed-correspondences.png"
+            alt="Corresponding points selected for the bedroom images">
+        </div>
+        <p class="mt-4">The homography matrices I recovered from these correspondences are shown below:</p>
+        <img class="img-fluid wide-image mt-2" src="media/H.png" alt="Recovered homography matrices">
+      </div>
+
+      <div class="mt-5">
+        <h3>A.3: Warp the Images</h3>
+        <p class="mt-3">
+          Now that we can calculate the homography between two images, I wrote warping functions implementing nearest
+          neighbor interpolation and bilinear interpolation:
+        </p>
+        <pre class="text-start bg-body-secondary p-3 rounded"><code class="language-python">def warp_image_nearest_neighbor(im, H):
+    return warp_image(im, H, "nn")
+
+
+def warp_image_bilinear(im, H):
+    return warp_image(im, H, "bilinear")
+
+
+def warp_image(im, H, method):
+    H_inv = np.linalg.inv(H)
+
+    corners = np.array(
+        [
+            [0, 0, 1],
+            [im.shape[1] - 1, 0, 1],
+            [0, im.shape[0] - 1, 1],
+            [im.shape[1] - 1, im.shape[0] - 1, 1],
+        ]
+    ).T
+    warped_corners = H @ corners
+    warped_corners_xy = warped_corners[:2] / warped_corners[2]
+
+    min_warped_x, max_warped_x, min_warped_y, max_warped_y = (
+        np.floor(warped_corners_xy[0].min()).astype(int),
+        np.ceil(warped_corners_xy[0].max()).astype(int),
+        np.floor(warped_corners_xy[1].min()).astype(int),
+        np.ceil(warped_corners_xy[1].max()).astype(int),
+    )
+
+    warped_im = np.zeros((max_warped_y - min_warped_y, max_warped_x - min_warped_x, 4))
+    for y, x in np.ndindex(warped_im.shape[:2]):
+        shifted_y, shifted_x = min_warped_y + y, min_warped_x + x
+
+        p_prime = np.array([shifted_x, shifted_y, 1])
+        p = H_inv @ p_prime
+
+        if method == "nn":
+            im_x, im_y = np.round(p[:2] / p[2]).astype(int)
+            if 0 &lt;= im_x &lt; im.shape[1] and 0 &lt;= im_y &lt; im.shape[0]:
+                warped_im[y, x] = im[im_y, im_x]
+        elif method == "bilinear":
+            im_x, im_y = p[:2] / p[2]
+            x1, y1 = np.floor(im_x).astype(int), np.floor(im_y).astype(int)
+            x2, y2 = x1 + 1, y1 + 1
+
+            w_x1 = (x2 - im_x) / (x2 - x1)
+            w_x2 = (im_x - x1) / (x2 - x1)
+            w_y1 = (y2 - im_y) / (y2 - y1)
+            w_y2 = (im_y - y1) / (y2 - y1)
+
+            neighbor_weights = [
+                ((x1, y1), w_x1 * w_y1),
+                ((x2, y1), w_x2 * w_y1),
+                ((x1, y2), w_x1 * w_y2),
+                ((x2, y2), w_x2 * w_y2),
+            ]
+
+            total_w = 0
+            for (n_x, n_y), w in neighbor_weights:
+                if 0 &lt;= n_x &lt; im.shape[1] and 0 &lt;= n_y &lt; im.shape[0]:
+                    warped_im[y, x] += im[n_y, n_x] * w
+                    total_w += w
+            if total_w &gt; 0:
+                warped_im[y, x] /= total_w
+
+    return warped_im, min_warped_x, min_warped_y</code></pre>
+        <p class="mt-4">
+          Here are the results after using these functions to rectify an image of a computer monitor and an image of a
+          window:
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-3">
+          <figure class="m-0">
+            <img class="img-fluid writeup-image" src="media/monitor-warp.png" alt="Rectified computer monitor">
+            <figcaption class="image-caption mt-2">Monitor rectification</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid writeup-image" src="media/window-warp.png" alt="Rectified window">
+            <figcaption class="image-caption mt-2">Window rectification</figcaption>
+          </figure>
+        </div>
+        <p class="mt-4">
+          Bilinear interpolation is around four times slower than nearest neighbor interpolation because each output
+          pixel is sampled from four image pixels instead of just one. This produces better image quality because edges
+          are less jagged. With my images, however, the resolution is sufficiently high that the difference is not
+          noticeably visible.
+        </p>
+      </div>
+
+      <div class="mt-5">
+        <h3>A.4: Blend the Images into a Mosaic</h3>
+        <p class="mt-3">
+          With homography calculation and warping now available, I blended the original three image sets together. I
+          used a two-level Laplacian stack to blend the images, which resulted in virtually seamless mosaics!
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-3">
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/cafe-mosaic.png" alt="Cafe image mosaic">
+            <figcaption class="image-caption mt-2">Cafe mosaic</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/apt-mosaic.png" alt="Apartment image mosaic">
+            <figcaption class="image-caption mt-2">Apartment mosaic</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/bed-mosaic.png" alt="Bedroom image mosaic">
+            <figcaption class="image-caption mt-2">Bedroom mosaic</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.11.1/highlight.min.js"
+    crossorigin="anonymous"></script>
+  <script>hljs.highlightAll();</script>
+  <script>
+    MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</body>
+
+</html>

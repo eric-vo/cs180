@@ -1,0 +1,145 @@
+A.1: Shoot the Pictures
+To start here are three sets of images I took of a cafe, my apartment, and my bedroom. Each set has a projective transformation between the two images (where I rotated the camera).
+<cafe1.jpeg> <cafe2.jpeg>
+<apt1.jpeg> <apt2.jpeg>
+<bed1.jpeg> <bed2.jpeg>
+
+A.2: Recover Homographies
+To compute the homography betwen two images in a set, I wrote the following function:
+```python
+def compute_H(im1_points, im2_points):
+    """
+    im1_points: (n, 2)
+    im2_points: (n, 2)
+
+    p' = Hp
+    Output H: (3, 3)
+    """
+    A = []
+    for (x, y), (x_prime, y_prime) in zip(im1_points, im2_points):
+        A.append([x, y, 1, 0, 0, 0, -x * x_prime, -y * x_prime])
+        A.append([0, 0, 0, x, y, 1, -x * y_prime, -y * y_prime])
+    A = np.array(A)
+
+    b = im2_points.flatten()
+
+    h = np.linalg.lstsq(A, b)[0]
+    H = np.concat([h, [1]]).reshape((3, 3))
+    return H
+```
+The `compute_H` function creates a system of equations in the form **Ah = b**, then solves for **h** using least squares
+(where **h** is a column vector of the 8 values a-h in the homography matrix, assuming i is fixed as 1). For **n** point correspondences, we can derive **A** and **b** as follows:
+Using the homography equation **p' = Hp**, the full form can be written as:
+[wx']   [ a b c ]   [x]
+[wy'] = [ d e f ] x [y]
+[w  ]   [ g h 1 ]   [1]
+Multiplying out the matrix multiplication gives us:
+ax + by + c = wx'
+dx + ey + f = wy'
+gx + hy + 1 = w
+Then, we can divide the first two equations by the third to get the following two equations:
+(ax + by + c) / (gx + hy + 1) = x'
+(dx + ey + f) / (gx + hy + 1) = y'
+Multiplying by (gx + hy + 1) and isolating an x' and y' on the right side gives:
+ax + by + c               - gxx' - hyx' = x'
+              dx + ey + f - gxy' - hyy' = y'
+Which means for each point correspondence (x, y) -> (x', y'), their two rows in A are:
+[x, y, 1, 0, 0, 0, -x * x_prime, -y * x_prime]
+[0, 0, 0, x, y, 1, -x * y_prime, -y * y_prime]
+since multiplying A by h gives the previous equations, and their two values in b are simply x' and y' from the equations.
+
+So for one point, the system is:
+[x, y, 1, 0, 0, 0, -x * x_prime, -y * x_prime]               [x']
+[0, 0, 0, x, y, 1, -x * y_prime, -y * y_prime]   *     h   = [y']
+And for each new point, we simply extend A and b.
+
+Once we solve for h, we can simply construct H from the values!
+
+For my three sets of images, here the correspondences I created:
+<cafe-correspondences> <apt-correspondences> <bed-correspondences>
+
+And here are the homography matrices I recovered from them:
+<H.png>
+
+A.3: Warp the images
+Now that we can calculate the homography between two images, I wrote warping functions implementing nearest neighbor interpolation and bilinear interpolation:
+```
+def warp_image_nearest_neighbor(im, H):
+    return warp_image(im, H, "nn")
+
+
+def warp_image_bilinear(im, H):
+    return warp_image(im, H, "bilinear")
+
+
+def warp_image(im, H, method):
+    H_inv = np.linalg.inv(H)
+
+    corners = np.array(
+        [
+            [0, 0, 1],
+            [im.shape[1] - 1, 0, 1],
+            [0, im.shape[0] - 1, 1],
+            [im.shape[1] - 1, im.shape[0] - 1, 1],
+        ]
+    ).T
+    warped_corners = H @ corners
+    warped_corners_xy = warped_corners[:2] / warped_corners[2]
+
+    min_warped_x, max_warped_x, min_warped_y, max_warped_y = (
+        np.floor(warped_corners_xy[0].min()).astype(int),
+        np.ceil(warped_corners_xy[0].max()).astype(int),
+        np.floor(warped_corners_xy[1].min()).astype(int),
+        np.ceil(warped_corners_xy[1].max()).astype(int),
+    )
+
+    warped_im = np.zeros((max_warped_y - min_warped_y, max_warped_x - min_warped_x, 4))
+    for y, x in np.ndindex(warped_im.shape[:2]):
+        shifted_y, shifted_x = min_warped_y + y, min_warped_x + x
+
+        p_prime = np.array([shifted_x, shifted_y, 1])
+        p = H_inv @ p_prime
+
+        if method == "nn":
+            im_x, im_y = np.round(p[:2] / p[2]).astype(int)
+            if 0 <= im_x < im.shape[1] and 0 <= im_y < im.shape[0]:
+                warped_im[y, x] = im[im_y, im_x]
+        elif method == "bilinear":
+            im_x, im_y = p[:2] / p[2]
+            x1, y1 = np.floor(im_x).astype(int), np.floor(im_y).astype(int)
+            x2, y2 = x1 + 1, y1 + 1
+
+            w_x1 = (x2 - im_x) / (x2 - x1)
+            w_x2 = (im_x - x1) / (x2 - x1)
+            w_y1 = (y2 - im_y) / (y2 - y1)
+            w_y2 = (im_y - y1) / (y2 - y1)
+
+            neighbor_weights = [
+                ((x1, y1), w_x1 * w_y1),
+                ((x2, y1), w_x2 * w_y1),
+                ((x1, y2), w_x1 * w_y2),
+                ((x2, y2), w_x2 * w_y2),
+            ]
+
+            total_w = 0
+            for (n_x, n_y), w in neighbor_weights:
+                if 0 <= n_x < im.shape[1] and 0 <= n_y < im.shape[0]:
+                    warped_im[y, x] += im[n_y, n_x] * w
+                    total_w += w
+            if total_w > 0:
+                warped_im[y, x] /= total_w
+
+    return warped_im, min_warped_x, min_warped_y
+```
+
+And here are the results after using them to rectify an image of a computer monitor and an image of a window:
+<monitor-warp> <window-warp>
+
+A couple notes. Bilinear interpolation is around 4 times slower than nearest neighbor interpolation since for each output pixel, we are sampling from 4 image pixels instead of just 1.
+However, this comes with the benefit of better image quality since edges will be less jagged with bilinear interpolation.
+With my images, though, it appears as the resolution is sufficiently high that the difference is not noticeably visible.
+
+A.4: Blend the Images into a Mosaic:
+With homography calculation and warping now available, let's blend the original three image sets together! I decided to use a two-level Laplacian stack to blend the images together, which resulted
+in virtually seamless mosaics!
+<cafe-mosaic> <apt-mosaic> <bed-mosaic>
