@@ -306,6 +306,164 @@ def warp_image(im, H, method):
         </div>
       </div>
     </section>
+
+    <section class="mt-5">
+      <h2>Part B: Feature Matching for Auto-Stitching</h2>
+      <p class="mt-3">
+        Instead of manually picking correspondences, we can implement an algorithm to automatically stich images together using corner detection and feature matching.
+      </p>
+
+      <div class="mt-5">
+        <h3>B.1: Harris Corners and ANMS</h3>
+        <p class="mt-3">
+          I computed the Harris corner response for each image. I retained local maxima of the response as candidate points. As you can see, there are a lot of points, but we'll pick out the strong ones in the next step!
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-3">
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/cafe-corners.png" alt="Harris corners on cafe images">
+            <figcaption class="image-caption mt-2">Cafe: Harris corners</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/apt-corners.png" alt="Harris corners on apartment images">
+            <figcaption class="image-caption mt-2">Apartment: Harris corners</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/bed-corners.png" alt="Harris corners on bedroom images">
+            <figcaption class="image-caption mt-2">Bedroom: Harris corners</figcaption>
+          </figure>
+        </div>
+        <p class="mt-4">
+          To distribute strong features evenly, I implemented Adaptive Non-Maximal Suppression, which retains corners that are local maxima within a certain radius.
+          This preserves strong corners while preventing one small region from dominating the feature set.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-3">
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/cafe-corners-anms.png" alt="ANMS corners on cafe images">
+            <figcaption class="image-caption mt-2">Cafe: after ANMS, n=500</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/apt-corners-anms.png" alt="ANMS corners on apartment images">
+            <figcaption class="image-caption mt-2">Apartment: after ANMS, n=500</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/bed-corners-anms.png" alt="ANMS corners on bedroom images">
+            <figcaption class="image-caption mt-2">Bedroom: after ANMS, n=500</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="mt-5">
+        <h3>B.2: Feature Descriptor Extraction</h3>
+        <p class="mt-3">
+          To extract features from corners, I sampled a 40x40 window from each corner and downsampled it to an 8x8 descriptor.
+          Each descriptor is then bias and gain normalized by subtracting its mean and dividing by its standard deviation.
+          The visualizations below show feature locations and representative extracted patches.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-3">
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/cafe-feature-corners.png" alt="Cafe feature locations">
+            <figcaption class="image-caption mt-2">Cafe: descriptor locations</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/cafe-features1.png" alt="Cafe extracted feature descriptors">
+            <figcaption class="image-caption mt-2">Cafe: descriptors in the first image</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/cafe-features2.png" alt="Second cafe extracted feature descriptors">
+            <figcaption class="image-caption mt-2">Cafe: descriptors in the second image</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/apt-feature-corners.png" alt="Apartment feature locations">
+            <figcaption class="image-caption mt-2">Apartment: descriptor locations</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/apt-features1.png" alt="Apartment extracted feature descriptors">
+            <figcaption class="image-caption mt-2">Apartment: descriptors in the first image</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/apt-features2.png" alt="Second apartment extracted feature descriptors">
+            <figcaption class="image-caption mt-2">Apartment: descriptors in the second image</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/bed-feature-corners.png" alt="Bedroom feature locations">
+            <figcaption class="image-caption mt-2">Bedroom: descriptor locations</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/bed-features1.png" alt="Bedroom extracted feature descriptors">
+            <figcaption class="image-caption mt-2">Bedroom: descriptors in the first image</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/bed-features2.png" alt="Second bedroom extracted feature descriptors">
+            <figcaption class="image-caption mt-2">Bedroom: descriptors in the second image</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="mt-5">
+        <h3>B.3: Feature Matching</h3>
+        <p class="mt-3">
+          I compared descriptors using Euclidean distance. For each descriptor in the first image, I
+          calculated its two nearest neighbors in the second image and accepted the match when the ratio of
+          the nearest-neighbor distance to the second-nearest distance was sufficiently small. The
+          resulting correspondences are shown below.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-3">
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/cafe-matched.png" alt="Matched cafe features">
+            <figcaption class="image-caption mt-2">Cafe descriptor matches</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/apt-matched.png" alt="Matched apartment features">
+            <figcaption class="image-caption mt-2">Apartment descriptor matches</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/bed-matched.png" alt="Matched bedroom features">
+            <figcaption class="image-caption mt-2">Bedroom descriptor matches</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="mt-5">
+        <h3>B.4: RANSAC and Automatic Mosaics</h3>
+        <p class="mt-3">
+          To calculate the final homography while ignoring outliers, I used four-point RANSAC.
+          On each iteration, I sampled four correspondences, computed a homography from those points, and
+          counted inliers whose projection error was below a threshold of 0.7. I then kept the homography with the most inliers
+          and warped & blended the images using adapted code from Part A. I improved the code to use Laplacian blending
+          only near the intersection of the images.
+        </p>
+        <p>
+          The manual mosaics use hand-selected correspondences from Part A,
+          while the automatic mosaics use Harris corners, ANMS, descriptors, matching, and RANSAC.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3 mt-3">
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/cafe-mosaic-manual.png" alt="Manual cafe mosaic">
+            <figcaption class="image-caption mt-2">Cafe: manual stitching</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/cafe-mosaic-auto.png" alt="Automatic cafe mosaic">
+            <figcaption class="image-caption mt-2">Cafe: automatic stitching</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/apt-mosaic-manual.png" alt="Manual apartment mosaic">
+            <figcaption class="image-caption mt-2">Apartment: manual stitching</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/apt-mosaic-auto.png" alt="Automatic apartment mosaic">
+            <figcaption class="image-caption mt-2">Apartment: automatic stitching</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/bed-mosaic-manual.png" alt="Manual bedroom mosaic">
+            <figcaption class="image-caption mt-2">Bedroom: manual stitching</figcaption>
+          </figure>
+          <figure class="m-0">
+            <img class="img-fluid wide-image" src="media/part_b/bed-mosaic-auto.png" alt="Automatic bedroom mosaic">
+            <figcaption class="image-caption mt-2">Bedroom: automatic stitching</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
