@@ -429,8 +429,8 @@ def warp_image(im, H, method):
           To calculate the final homography while ignoring outliers, I used four-point RANSAC.
           On each iteration, I sampled four correspondences, computed a homography from those points, and
           counted inliers whose projection error was below a threshold of 0.7. I then kept the homography with the most inliers
-          and warped & blended the images using adapted code from Part A. I improved the code to use Laplacian blending
-          only near the intersection of the images.
+          and warped & blended the images using adapted code from Part A. I also improved the code to use Laplacian blending
+          only near the intersection of the images, using a binary mask based on the distance to the nearest edge from each image.
         </p>
         <p>
           The manual mosaics use hand-selected correspondences from Part A,
